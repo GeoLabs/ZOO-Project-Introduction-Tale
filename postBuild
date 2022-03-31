@@ -1,0 +1,140 @@
+#!/bin/bash
+
+LOCALDIR=~/.local
+BINDIR=$LOCALDIR/bin
+ETCDIR=$LOCALDIR/etc
+
+echo "****** PRINT VERSION *******"
+cat /etc/os-release
+
+echo "****** STEP 1 *******"
+git clone https://github.com/gfenoy/ZOO-Project.git
+cd ZOO-Project
+make -C ./thirds/cgic206 libcgic.a
+cd thirds
+echo "****** STEP 2: Try to build OTB *******"
+mkdir OTB
+cd OTB
+git clone --branch release-6.6 https://gitlab.orfeo-toolbox.org/orfeotoolbox/otb.git
+mkdir build
+mkdir install
+cd build
+cmake -D CMAKE_INSTALL_PREFIX=~/.local/ \
+      -D USE_SYSTEM_CURL=1 \
+      -D USE_SYSTEM_GDAL=1 \
+      -D USE_SYSTEM_GEOTIFF=1 \
+      -D USE_SYSTEM_ITK=1 \
+      -D USE_SYSTEM_PNG=1 \
+      -D USE_SYSTEM_TINYXML=1 \
+      -D USE_SYSTEM_MUPARSER=1 \
+      -D USE_SYSTEM_OPENCV=1 \
+      -D USE_SYSTEM_LIBSVM=1 \
+      -D USE_SYSTEM_LIBKML=1 \
+      -D USE_SYSTEM_MUPARSER=1 \
+      -D USE_SYSTEM_FREETYPE=1 \
+      -D USE_SYSTEM_BOOST=1 \
+      -D USE_SYSTEM_OPENTHREADS=1 \
+      -D OTB_USE_QT4=0 \
+      -D OTB_USE_QT5=0 \
+      -D OTB_USE_QT=0 \
+      -D OTB_USE_GLEW=0 \
+      -D OTB_USE_GLFW=0 \
+      -D OTB_USE_FREETYPE=0 \
+      -D OTB_USE_GLUT=0 \
+      -D OTB_USE_SHARK=0 \
+      -D OTB_USE_QWT=0 \
+      ../otb/SuperBuild
+make -j 4
+cat /home/jovyan/work/workspace/ZOO-Project/thirds/OTB/build/OTB/src/OTB-stamp/OTB-configure-*.log
+cd ../..
+
+echo "****** STEP 3: Build MapServer *******"
+git clone https://github.com/MapServer/MapServer.git
+cd MapServer
+mkdir build
+cd build
+cmake .. \
+       -DWITH_PYTHON=0 \
+       -DWITH_CLIENT_WMS=1 \
+       -DWITH_CLIENT_WFS=1 \
+       -DCMAKE_PREFIX_PATH=/usr/ \
+       -DWITH_KML=1 \
+       -DCMAKE_INSTALL_PREFIX=/usr \
+       -DWITH_OGCAPI=1 \
+       -DPROTOBUF_INCLUDE_DIR=/usr/include/google//protobuf-c \
+       -DPROTOBUFC_LIBRARY=/usr/lib/x86_64-linux-gnu/libprotobuf-c.so \
+       -DPROTOBUF_COMPILER=/usr/bin/protoc-c \
+       -DPYTHON_INCLUDE_DIRS=$(python -c "from distutils.sysconfig import get_python_inc; print(get_python_inc())")  \
+       -DPYTHON_LIBRARY=$(python -c "import distutils.sysconfig as sysconfig; print(sysconfig.get_config_var('LIBDIR'))") \
+       -DCMAKE_INSTALL_PREFIX=$LOCALDIR
+make -j 10
+make install
+#find $LOCALDIR
+echo "****** STEP 4: Build ZOO-Kernel *******"
+cd ../../..
+cd ./zoo-project/zoo-kernel
+sed "s={sysconfdir}=withval=g" -i configure.ac
+grep -v GetAvailableApplications  configure.ac > configure.ac1
+mv configure.ac1 configure.ac
+
+autoconf
+#./configure --with-etc-dir=/home/jovyan/.local/etc/ --with-rabbitmq=yes --with-python=/usr --with-pyvers=3.6 --with-mapserver=$LOCALDIR --with-ms-version=7 --with-ms-force-linkage=yes --with-ms-obj=../../thirds/MapServer/build/CMakeFiles/mapserver.dir/mapfile.c.o --with-json=/usr --with-r=/usr --with-db-backend --prefix=/usr # --with-otb=/usr/ --with-itk=/usr --with-otb-version=6.4 --with-itk-version=4.12 --with-saga=/usr --with-saga-version=7.2 --with-wx-config=/usr/bin/wx-config
+./configure --with-etc-dir=/home/jovyan/.local/etc/ \
+	    --with-python=/usr \
+	    --with-pyvers=3.6 \
+	    --with-mapserver=$LOCALDIR --with-ms-version=7 --with-ms-force-linkage=yes --with-ms-obj=../../thirds/MapServer/build/CMakeFiles/mapserver.dir/mapfile.c.o \
+	    --with-json=/usr \
+	    --with-r=/usr \
+	    --prefix=/usr \
+	    --with-otb=$LOCALDIR \
+	    --with-itk=/usr \
+	    --with-otb-version=6.6 \
+	    --with-itk-version=4.12 # --with-saga=/usr --with-saga-version=7.2 --with-wx-config=/usr/bin/wx-config
+#sed "s:#define CLASS class:#define CLASSXX _class:g;s:CLASS:_class:g" -i service_json.c
+sed "s:-lcurl:-L/usr/lib/x86_64-linux-gnu/ -lcurl:g" -i ZOOMakefile.opts
+sed "s:#define CLASS class::g;s:CLASS:_class:g" -i service_json.c
+#find /usr/lib -name "libcurl.so"
+make -j4
+mkdir -p $BINDIR/usr/lib/cgi-bin
+make install DESTDIR=$LOCALDIR/ CGI_DIR=lib/cgi-bin INST_LIB=lib/ INST_INCLUDE=include/ SHAREDSTATEDIR=com/zoo-project/
+cp zoo_loader.cgi $BINDIR
+cp zoo_loader_fpm $BINDIR
+cp libzoo_services*so $LOCALDIR/lib/
+#cp zoo_loader_fpm zoo_loader.cgi main.cfg $BINDIR/usr/lib/cgi-bin/
+SHARE_DIR=$LOCALDIR/com/zoo-project/
+cp oas.cfg $SHARE_DIR
+cp ../../docker/main.cfg $ETCDIR
+cp ../../docker/oas.cfg $ETCDIR
+cp ../zoo-services/utils/open-api/cgi-env/* $ETCDIR
+cp ../zoo-services/hello-py/cgi-env/* $ETCDIR
+cp ../zoo-services/hello-js/cgi-env/* $ETCDIR
+cp ../zoo-services/hello-r/cgi-env/* $ETCDIR
+cp ../zoo-api/r/minimal.r $ETCDIR
+
+echo "****** STEP 5: Build otb2zcfg to produce ZOO-Service configuraton files *******"
+sed "s:/usr/lib/x86_64-linux-gnu/otb:/home/jovyan/.local/lib/otb:g" -i $ETCDIR/main.cfg
+mkdir $LOCALDIR/cgi-bin
+ln -s $LOCALDIR/bin/* $LOCALDIR/cgi-bin/
+
+mkdir otb_build
+cd otb_build
+cmake ../../../thirds/otb2zcfg
+make
+mkdir OTB
+cd OTB
+ITK_AUTOLOAD_PATH=/home/jovyan/.local/lib/otb/applications/ ../otb2zcfg
+mkdir $ETCDIR/OTB
+cp *zcfg $ETCDIR/OTB
+
+sed "s:;=:; :g" -i ~/.local/etc/OTB/TrainVectorClassifier.zcfg
+sed "s:t = 1:t &eq; 1:g" -i ~/.local/etc/OTB/TrainRegression.zcfg
+sed "s:;=:; :g" -i ~/.local/etc/OTB/TrainRegression.zcfg
+sed "s:;=:; :g" -i ~/.local/etc/OTB/TrainImagesClassifier.zcfg
+
+for j in OTB SAGA ;
+do
+	for i in $(find $LOCALDIR/etc/$j/ -name "*zcfg");
+	do
+		sed "s:image/png:image/png\n     useMapserver = true\n     msClassify = true:g;s:text/xml:text/xml\n     useMapserver = true:g;s:mimeType = application/x-ogc-aaigrid:mimeType = application/x-ogc-aaigrid\n   </Supported>\n   <Supported>\n     mimeType = image/png\n     useMapserver=true:g" -i $i;
+	done;
+done

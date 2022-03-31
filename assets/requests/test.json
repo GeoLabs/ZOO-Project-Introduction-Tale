@@ -1,0 +1,10 @@
+{
+    "inputs": {
+        "a": "Martin and Jules"
+    },
+    "outputs": {
+        "Result": {
+            "transmissionMode": "value"
+        }
+    }
+}
