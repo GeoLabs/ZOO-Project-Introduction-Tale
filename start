@@ -2,6 +2,6 @@
 
 echo "Start"
 cd ~/.local
-MAPSERVER_CONFIG_FILE=/home/jovyan/.local/etc/mapserver-sample.conf python -m http.server 8000 --cgi > ~/web_debug.log
+MAPSERVER_CONFIG_FILE=/home/jovyan/.local/etc/mapserver-sample.conf python -m http.server 8000 --cgi > ~/web_debug.log &
 
 exec "$@"
