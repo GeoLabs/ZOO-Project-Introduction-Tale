@@ -152,3 +152,5 @@ do
 done
 
 CFLAGS="-I /usr/include/gdal/" pip install gdal==2.2.3
+
+pip install display_xml earthpy
