@@ -22,6 +22,11 @@ librabbitmq4
 python3
 r-base
 python3-pip
+python3-opencv
+python3-matplotlib
+python3-geopandas
+python3-geojson
+python3-folium
 bison
 flex
 make
