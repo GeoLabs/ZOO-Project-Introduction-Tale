@@ -4,7 +4,7 @@ LOCALDIR=~/.local
 BINDIR=$LOCALDIR/bin
 ETCDIR=$LOCALDIR/etc
 
-echo "****** PRINT VERSION *******"
+echo "****** PRINT VERSION 1 *******"
 cat /etc/os-release
 
 echo "****** STEP 1 *******"
@@ -45,7 +45,7 @@ cmake -D CMAKE_INSTALL_PREFIX=~/.local/ \
       -D OTB_USE_QWT=0 \
       ../otb/SuperBuild
 make -j 4
-cat /home/jovyan/work/workspace/ZOO-Project/thirds/OTB/build/OTB/src/OTB-stamp/OTB-configure-*.log
+#cat /home/jovyan/work/workspace/ZOO-Project/thirds/OTB/build/OTB/src/OTB-stamp/OTB-configure-*.log
 cd ../..
 
 echo "****** STEP 3: Build MapServer *******"
@@ -70,6 +70,7 @@ cmake .. \
 make -j 10
 make install
 #find $LOCALDIR
+sed "s:/opt/mapserver:/WholeTale/workspace/MapServer/ms-ogc-workshop/service:g" -i ~jovyan/.local/etc/mapserver-sample.conf
 echo "****** STEP 4: Build ZOO-Kernel *******"
 cd ../../..
 cd ./zoo-project/zoo-kernel
@@ -82,6 +83,7 @@ autoconf
 ./configure --with-etc-dir=/home/jovyan/.local/etc/ \
 	    --with-python=/usr \
 	    --with-pyvers=3.6 \
+        --with-saga=/usr --with-wx-config=$(which wx-config) \
 	    --with-mapserver=$LOCALDIR --with-ms-version=7 --with-ms-force-linkage=yes --with-ms-obj=../../thirds/MapServer/build/CMakeFiles/mapserver.dir/mapfile.c.o \
 	    --with-json=/usr \
 	    --with-r=/usr \
@@ -116,6 +118,16 @@ sed "s:/usr/lib/x86_64-linux-gnu/otb:/home/jovyan/.local/lib/otb:g" -i $ETCDIR/m
 mkdir $LOCALDIR/cgi-bin
 ln -s $LOCALDIR/bin/* $LOCALDIR/cgi-bin/
 
+mkdir saga_build
+cd saga_build
+make -C ../../../thirds/saga2zcfg
+mkdir zcfgs
+cd zcfgs
+MODULE_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu/saga/  SAGA_MLB=/usr/lib/x86_64-linux-gnu/saga/ ../../../../thirds/saga2zcfg/saga2zcfg
+mkdir $ETCDIR/SAGA
+cp -r * $ETCDIR/SAGA
+cd ../..
+
 mkdir otb_build
 cd otb_build
 cmake ../../../thirds/otb2zcfg
@@ -138,3 +150,5 @@ do
 		sed "s:image/png:image/png\n     useMapserver = true\n     msClassify = true:g;s:text/xml:text/xml\n     useMapserver = true:g;s:mimeType = application/x-ogc-aaigrid:mimeType = application/x-ogc-aaigrid\n   </Supported>\n   <Supported>\n     mimeType = image/png\n     useMapserver=true:g" -i $i;
 	done;
 done
+
+CFLAGS="-I /usr/include/gdal/" pip install gdal==2.2.3

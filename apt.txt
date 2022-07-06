@@ -1,5 +1,6 @@
 vim
 apache2
+whois
 strace
 gdb
 cgi-mapserver
@@ -59,7 +60,7 @@ r-base-dev
 librabbitmq-dev
 libkrb5-dev
 nlohmann-json-dev
-
+jq
 libx11-dev
 libxext-dev
 libxt-dev
